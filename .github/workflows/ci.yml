@@ -1,0 +1,110 @@
+# Automatic checks on every push and pull request (docs/program-reports.md section 4.3).
+# PHP syntax, Moodle coding style, plugin validation and the unit tests.
+#
+# Dependencies are pinned to the exact versions on the demo server (docs/programs.md):
+# Moodle v5.3.1, the MuTMS commits, tool_certificate v5.0.12. A second job runs against
+# the moving MOODLE_503_STABLE branch as an early warning. When the server's versions
+# change, change them here too.
+name: Moodle plugin CI
+
+on: [push, pull_request]
+
+env:
+  TOOL_MULIB_COMMIT: 04d91f79b4a9c6b9ed27c2342dab995993381057
+  ENROL_MUPROG_COMMIT: 788122e73019933031d548706cb145f5369e467b
+  TOOL_MUCATALOG_COMMIT: 7ac626bb331084a4baf7bd92a1498a183bd16ffc
+  TOOL_MUPROG_COMMIT: d713e10c3b810c20f85798497522477f2f661e7a
+  TOOL_CERTIFICATE_TAG: v5.0.12
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: 'postgres'
+          POSTGRES_HOST_AUTH_METHOD: 'trust'
+        ports:
+          - 5432:5432
+        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 3
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # The demo server's exact Moodle version.
+          - php: '8.3'
+            moodle-branch: 'v5.3.1'
+            database: 'pgsql'
+          # Early warning for the next 5.3 release.
+          - php: '8.3'
+            moodle-branch: 'MOODLE_503_STABLE'
+            database: 'pgsql'
+
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v4
+        with:
+          path: plugin
+
+      - name: Setup PHP ${{ matrix.php }}
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: pgsql, zip, gd, xmlrpc, soap
+          ini-values: max_input_vars=5000
+          coverage: none
+
+      - name: Initialise moodle-plugin-ci
+        run: |
+          composer create-project -n --no-dev --prefer-dist moodlehq/moodle-plugin-ci ci 4.5.11
+          echo $(cd ci/bin; pwd) >> $GITHUB_PATH
+          echo $(cd ci/vendor/bin; pwd) >> $GITHUB_PATH
+          sudo locale-gen en_AU.UTF-8
+          echo "NVM_DIR=$HOME/.nvm" >> $GITHUB_ENV
+
+      - name: Fetch dependencies at the pinned versions
+        run: |
+          mkdir extra
+          pin() {
+            git clone --quiet --branch MOODLE_503_DEV "https://github.com/mutms/moodle-$1.git" "extra/moodle-$1"
+            git -C "extra/moodle-$1" checkout --quiet --detach "$2"
+          }
+          pin tool_mulib "$TOOL_MULIB_COMMIT"
+          pin enrol_muprog "$ENROL_MUPROG_COMMIT"
+          pin tool_mucatalog "$TOOL_MUCATALOG_COMMIT"
+          pin tool_muprog "$TOOL_MUPROG_COMMIT"
+          git clone --quiet --depth 1 --branch "$TOOL_CERTIFICATE_TAG" \
+            https://github.com/moodleworkplace/moodle-tool_certificate.git extra/moodle-tool_certificate
+
+      - name: Install moodle-plugin-ci
+        run: moodle-plugin-ci install --plugin ./plugin --extra-plugins ./extra --db-host=127.0.0.1
+        env:
+          DB: ${{ matrix.database }}
+          MOODLE_BRANCH: ${{ matrix.moodle-branch }}
+
+      - name: PHP Lint
+        if: ${{ !cancelled() }}
+        run: moodle-plugin-ci phplint
+
+      - name: Moodle Code Checker
+        if: ${{ !cancelled() }}
+        run: moodle-plugin-ci phpcs --max-warnings 0
+
+      - name: Moodle PHPDoc Checker
+        if: ${{ !cancelled() }}
+        run: moodle-plugin-ci phpdoc --max-warnings 0
+
+      - name: Validating
+        if: ${{ !cancelled() }}
+        run: moodle-plugin-ci validate
+
+      - name: Check upgrade savepoints
+        if: ${{ !cancelled() }}
+        run: moodle-plugin-ci savepoints
+
+      - name: PHPUnit tests
+        if: ${{ !cancelled() }}
+        run: moodle-plugin-ci phpunit --fail-on-warning

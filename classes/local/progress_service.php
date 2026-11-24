@@ -80,8 +80,10 @@ final class progress_service {
                 // Only the expected case: MuTMS reports a missing or malformed program structure
                 // ("No program items found", "Missing top program item"). Anything else, such as a
                 // changed MuTMS API, is a real error and must show up in CI and testing.
-                debugging('local_merqamreports: cannot load program ' . $programid . ': ' . $e->getMessage(),
-                    DEBUG_DEVELOPER);
+                debugging(
+                    'local_merqamreports: cannot load program ' . $programid . ': ' . $e->getMessage(),
+                    DEBUG_DEVELOPER
+                );
                 self::$trees[$programid] = null;
             }
         }
@@ -96,10 +98,15 @@ final class progress_service {
      */
     private static function convert(item $item): array {
         if (!$item->is_set()) {
-            return progress_calculator::node((int)$item->get_id(), progress_calculator::TYPE_LEAF,
-                (int)$item->get_points());
+            return progress_calculator::node(
+                (int)$item->get_id(),
+                progress_calculator::TYPE_LEAF,
+                (int)$item->get_points()
+            );
         }
-        /** @var set $item */
+        if (!$item instanceof set) {
+            throw new \coding_exception('Unexpected MuTMS set class: ' . get_class($item));
+        }
         $children = [];
         foreach ($item->get_children() as $child) {
             $children[] = self::convert($child);

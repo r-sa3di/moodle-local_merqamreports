@@ -164,8 +164,8 @@ final class progress_calculator_test extends \basic_testcase {
      * Test: empty set and leaf.
      */
     public function test_empty_set_and_leaf(): void {
-        $this->assertEqualsWithDelta(0.0, calc::calculate(calc::node(1, calc::TYPE_SET, 1,
-            calc::SEQUENCE_ALLINANYORDER), []), 0.0001);
+        $emptyset = calc::node(1, calc::TYPE_SET, 1, calc::SEQUENCE_ALLINANYORDER);
+        $this->assertEqualsWithDelta(0.0, calc::calculate($emptyset, []), 0.0001);
         $this->assertEqualsWithDelta(0.0, calc::calculate(calc::node(2, calc::TYPE_LEAF), []), 0.0001);
         $this->assertEqualsWithDelta(1.0, calc::calculate(calc::node(2, calc::TYPE_LEAF), $this->done([2])), 0.0001);
     }

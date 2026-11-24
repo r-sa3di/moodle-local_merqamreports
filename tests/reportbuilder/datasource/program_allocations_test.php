@@ -32,12 +32,12 @@ use local_merqamreports\local\progress_service;
 #[\PHPUnit\Framework\Attributes\CoversClass(program_allocations::class)]
 #[\PHPUnit\Framework\Attributes\CoversClass(company_access::class)]
 final class program_allocations_test extends core_reportbuilder_testcase {
-    /** @var \stdClass Company Alpha category */
-    private \stdClass $alpha;
-    /** @var \stdClass Company Beta category */
-    private \stdClass $beta;
-    /** @var \stdClass Sub-category of Alpha */
-    private \stdClass $alphasub;
+    /** @var \core_course_category Company Alpha category */
+    private \core_course_category $alpha;
+    /** @var \core_course_category Company Beta category */
+    private \core_course_category $beta;
+    /** @var \core_course_category Sub-category of Alpha */
+    private \core_course_category $alphasub;
     /** @var int Role holding the report capability */
     private int $roleid;
 
@@ -56,16 +56,28 @@ final class program_allocations_test extends core_reportbuilder_testcase {
 
         $this->alpha = $gen->create_category(['name' => 'Company Alpha', 'idnumber' => 'ALPHA']);
         $this->beta = $gen->create_category(['name' => 'Company Beta', 'idnumber' => 'BETA']);
-        $this->alphasub = $gen->create_category(['name' => 'Alpha sub', 'idnumber' => 'ALPHASUB',
-            'parent' => $this->alpha->id]);
+        $this->alphasub = $gen->create_category([
+            'name' => 'Alpha sub',
+            'idnumber' => 'ALPHASUB',
+            'parent' => $this->alpha->id,
+        ]);
 
         $programs = [
-            'alpha' => $progen->create_program(['fullname' => 'Alpha program', 'idnumber' => 'PA',
-                'contextid' => context\coursecat::instance($this->alpha->id)->id]),
-            'beta' => $progen->create_program(['fullname' => 'Beta program', 'idnumber' => 'PB',
-                'contextid' => context\coursecat::instance($this->beta->id)->id]),
-            'sub' => $progen->create_program(['fullname' => 'Sub program', 'idnumber' => 'PS',
-                'contextid' => context\coursecat::instance($this->alphasub->id)->id]),
+            'alpha' => $progen->create_program([
+                'fullname' => 'Alpha program',
+                'idnumber' => 'PA',
+                'contextid' => context\coursecat::instance($this->alpha->id)->id,
+            ]),
+            'beta' => $progen->create_program([
+                'fullname' => 'Beta program',
+                'idnumber' => 'PB',
+                'contextid' => context\coursecat::instance($this->beta->id)->id,
+            ]),
+            'sub' => $progen->create_program([
+                'fullname' => 'Sub program',
+                'idnumber' => 'PS',
+                'contextid' => context\coursecat::instance($this->alphasub->id)->id,
+            ]),
             'site' => $progen->create_program(['fullname' => 'Site program', 'idnumber' => 'PX']),
         ];
         foreach ($programs as $key => $program) {
@@ -86,8 +98,11 @@ final class program_allocations_test extends core_reportbuilder_testcase {
         /** @var \core_reportbuilder_generator $rbgen */
         $rbgen = $this->getDataGenerator()->get_plugin_generator('core_reportbuilder');
         $report = $rbgen->create_report(['name' => 'Programs', 'source' => program_allocations::class, 'default' => 0]);
-        $rbgen->create_column(['reportid' => $report->get('id'), 'uniqueidentifier' => 'user:username',
-            'sortenabled' => 1]);
+        $rbgen->create_column([
+            'reportid' => $report->get('id'),
+            'uniqueidentifier' => 'user:username',
+            'sortenabled' => 1,
+        ]);
         return (int)$report->get('id');
     }
 
@@ -112,8 +127,8 @@ final class program_allocations_test extends core_reportbuilder_testcase {
      */
     public function test_admin_sees_all_categories_but_not_site_programs(): void {
         $reportid = $this->create_username_report();
-        $this->assertSame(['learner_alpha', 'learner_beta', 'learner_sub'],
-            $this->usernames_seen_by($reportid, get_admin()));
+        $seen = $this->usernames_seen_by($reportid, get_admin());
+        $this->assertSame(['learner_alpha', 'learner_beta', 'learner_sub'], $seen);
     }
 
     /**
@@ -149,8 +164,8 @@ final class program_allocations_test extends core_reportbuilder_testcase {
 
         $alphamanager = $gen->create_user();
         role_assign($this->roleid, $alphamanager->id, context\coursecat::instance($this->alpha->id)->id);
-        role_change_permission($this->roleid, context\coursecat::instance($this->alphasub->id),
-            company_access::CAPABILITY, CAP_PROHIBIT);
+        $subcontext = context\coursecat::instance($this->alphasub->id);
+        role_change_permission($this->roleid, $subcontext, company_access::CAPABILITY, CAP_PROHIBIT);
         $this->assertSame(['learner_alpha'], $this->usernames_seen_by($reportid, $alphamanager));
     }
 
@@ -181,10 +196,10 @@ final class program_allocations_test extends core_reportbuilder_testcase {
 
         $rows = array_map('array_values', $this->get_custom_report_content($reportid));
         $byuser = array_column($rows, null, 0);
-        $this->assertSame([get_string('status_overdue', 'local_merqamreports'), '1'],
-            array_slice($byuser['learner_late'], 1));
-        $this->assertSame([get_string('status_open', 'local_merqamreports'), ''],
-            array_slice($byuser['learner_alpha'], 1));
+        $overdue = get_string('status_overdue', 'local_merqamreports');
+        $open = get_string('status_open', 'local_merqamreports');
+        $this->assertSame([$overdue, '1'], array_slice($byuser['learner_late'], 1));
+        $this->assertSame([$open, ''], array_slice($byuser['learner_alpha'], 1));
     }
 
     /**

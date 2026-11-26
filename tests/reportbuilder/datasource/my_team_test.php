@@ -163,6 +163,8 @@ final class my_team_test extends core_reportbuilder_testcase {
      * Test: every column works on its own, sorted where possible.
      */
     public function test_stress_columns(): void {
+        // Run as a supervisor: by design the admin sees no rows in "My team".
+        $this->setUser($this->users['boss']);
         $this->datasource_stress_test_columns(my_team::class);
     }
 
@@ -170,6 +172,7 @@ final class my_team_test extends core_reportbuilder_testcase {
      * Test: every condition works.
      */
     public function test_stress_conditions(): void {
+        $this->setUser($this->users['boss']);
         $this->datasource_stress_test_conditions(my_team::class, 'user:username');
     }
 }

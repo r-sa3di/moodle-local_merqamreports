@@ -75,9 +75,8 @@ class program_allocations extends datasource {
         $u = $userentity->get_table_alias('user');
         $this->add_join("JOIN {user} {$u} ON {$u}.id = {$a}.userid");
 
-        // Base conditions: lock 2, released programs only, existing users only.
-        [$companysql, $companyparams] = company_access::get_category_condition("{$pctx}.instanceid");
-        $this->add_base_condition_sql($companysql, $companyparams);
+        // Base conditions: who may see which rows, released programs only, existing users only.
+        $this->add_access_conditions("{$pctx}.instanceid", "{$a}.userid");
         $this->add_base_condition_sql("{$p}.draft = 0");
         $this->add_base_condition_sql("{$u}.deleted = 0");
 
@@ -105,6 +104,21 @@ class program_allocations extends datasource {
         $this->add_columns_from_entity($userentity);
         $this->add_filters_from_entity($userentity, [], ['userselect']);
         $this->add_conditions_from_entity($userentity, [], ['userselect']);
+    }
+
+    /**
+     * Add the base conditions that decide which rows the viewer may see.
+     *
+     * Company program reports (this source): only programs in course categories where the viewer
+     * holds local/merqamreports:viewprogramreports ("lock 2"). Sources extending this one replace
+     * the rule, e.g. "My team" limits rows to the viewer's own subordinates.
+     *
+     * @param string $categoryidfield SQL field with the program's course category id
+     * @param string $useridfield SQL field with the learner's user id
+     */
+    protected function add_access_conditions(string $categoryidfield, string $useridfield): void {
+        [$companysql, $companyparams] = company_access::get_category_condition($categoryidfield);
+        $this->add_base_condition_sql($companysql, $companyparams);
     }
 
     #[\Override]

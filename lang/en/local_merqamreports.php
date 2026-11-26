@@ -39,6 +39,7 @@ $string['certificate_archived'] = 'Certificate archived';
 $string['certificate_code'] = 'Certificate code';
 $string['certificate_expires'] = 'Certificate expiry date';
 $string['certificate_timecreated'] = 'Certificate issue date';
+$string['datasource_myteam'] = 'My team';
 $string['datasource_programallocations'] = 'Program allocations';
 $string['entity_allocation'] = 'Program allocation';
 $string['entity_certificate'] = 'Program certificate';

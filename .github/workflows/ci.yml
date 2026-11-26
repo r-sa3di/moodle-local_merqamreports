@@ -14,6 +14,7 @@ env:
   ENROL_MUPROG_COMMIT: 788122e73019933031d548706cb145f5369e467b
   TOOL_MUCATALOG_COMMIT: 7ac626bb331084a4baf7bd92a1498a183bd16ffc
   TOOL_MUPROG_COMMIT: d713e10c3b810c20f85798497522477f2f661e7a
+  TOOL_MURELATION_COMMIT: d0e6b105b759b9a72ca74512ee973a6bb3b81371
   TOOL_CERTIFICATE_TAG: v5.0.12
 
 jobs:
@@ -76,6 +77,7 @@ jobs:
           pin enrol_muprog "$ENROL_MUPROG_COMMIT"
           pin tool_mucatalog "$TOOL_MUCATALOG_COMMIT"
           pin tool_muprog "$TOOL_MUPROG_COMMIT"
+          pin tool_murelation "$TOOL_MURELATION_COMMIT"
           git clone --quiet --depth 1 --branch "$TOOL_CERTIFICATE_TAG" \
             https://github.com/moodleworkplace/moodle-tool_certificate.git extra/moodle-tool_certificate
 

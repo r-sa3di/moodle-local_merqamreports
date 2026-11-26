@@ -54,6 +54,16 @@ class allocation extends base {
     }
 
     /**
+     * A percentage as a whole number ("75%", not "75.0%").
+     *
+     * @param float $value
+     * @return string
+     */
+    public static function whole_percent(float $value): string {
+        return get_string('percents', 'moodle', format_float(round($value), 0));
+    }
+
+    /**
      * Join for the allocation source (how the learner was allocated).
      *
      * @return string
@@ -106,7 +116,7 @@ class allocation extends base {
                     (int)$row->allocationid,
                     $row->timecompleted ? (int)$row->timecompleted : null
                 );
-                return $percentage === null ? '' : format::percent(round($percentage));
+                return $percentage === null ? '' : self::whole_percent($percentage);
             });
 
         // MuTMS's own progress (completed items / all items), kept for comparison.
@@ -121,7 +131,7 @@ class allocation extends base {
                               THEN 100.0 * {$a}.itemscompleted / {$p}.itemscount
                               ELSE NULL END", 'mutmsprogress')
             ->set_is_sortable(true)
-            ->add_callback(static fn(?float $value): string => $value === null ? '' : format::percent(round($value)));
+            ->add_callback(static fn(?float $value): string => $value === null ? '' : self::whole_percent($value));
 
         // Dates.
         $dates = [

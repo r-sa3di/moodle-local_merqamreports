@@ -4,6 +4,10 @@ A Moodle 5.3 plugin that adds a **"Program allocations"** data source to
 Moodle's Report builder (custom reports), for programs made with the
 MuTMS Programs plugin (`tool_muprog`).
 
+A second data source, **"My team"**, shows the same rows limited to the
+viewer's own subordinates (MuTMS Supervisors and teams). One "My team"
+report can be shared with the managers of every company.
+
 One row is one learner in one program, with:
 - program status: Overdue, Open, Not started yet, Ended without completion,
   Completed, Archived (sorted overdue first);

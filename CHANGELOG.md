@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.0 (2026112600)
+- New data source **"My team"**: the program allocations of the viewer's own
+  subordinates (MuTMS Supervisors and teams, any framework). Nobody else,
+  site admins included, gets rows; available only with tool_murelation.
+- The company data source now decides access in one overridable method.
+- Percentages shown as whole numbers ("75%", not "75.0%").
+- Arabic: the capability name says تصنيف (category), as فئة now means cohort.
+- Tests for "My team"; CI also pins tool_murelation.
+
 ## 0.1.0 (2026112400)
 - First version: "Program allocations" Report builder data source with
   program, allocation, certificate, course category and user entities.

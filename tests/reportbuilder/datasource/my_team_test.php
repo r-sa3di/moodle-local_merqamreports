@@ -261,6 +261,29 @@ final class my_team_test extends core_reportbuilder_testcase {
     }
 
     /**
+     * Test: a Teams-mode framework grants nothing, even with both cohorts set and populated.
+     */
+    public function test_teams_mode_grants_nothing(): void {
+        /** @var \tool_murelation_generator $relgen */
+        $relgen = $this->getDataGenerator()->get_plugin_generator('tool_murelation');
+        $teams = $relgen->create_framework([
+            'uimode' => 'teams',
+            'name' => 'Alpha teams',
+            'supervisorcohortid' => $this->cohorts['alpham']->id,
+            'subordinatecohortid' => $this->cohorts['alphal']->id,
+        ]);
+        $team = $relgen->create_team([
+            'frameworkid' => $teams->id,
+            'teamname' => 'Team L',
+            'userid' => $this->users['boss']->id,
+        ]);
+        $relgen->create_team_member(['supervisorid' => $team->id, 'userid' => $this->users['loner']->id]);
+
+        $reportid = $this->create_report();
+        $this->assertSame(['s1/PA', 's2/PA'], $this->seen_by($reportid, $this->users['boss']));
+    }
+
+    /**
      * Test: a learner linked to the same supervisor in two frameworks gives one row per program.
      */
     public function test_two_frameworks_one_row(): void {

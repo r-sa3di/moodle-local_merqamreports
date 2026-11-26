@@ -71,7 +71,7 @@ final class team_access {
         if (!$supervisorid || !self::is_available()) {
             return ['1 = 0', []];
         }
-        if ($DB->get_field('user', 'suspended', ['id' => $supervisorid, 'deleted' => 0]) !== '0') {
+        if (!$DB->record_exists('user', ['id' => $supervisorid, 'deleted' => 0, 'suspended' => 0])) {
             return ['1 = 0', []];
         }
 

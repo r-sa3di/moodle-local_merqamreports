@@ -19,11 +19,13 @@ namespace local_merqamreports\reportbuilder\datasource;
 use core\context;
 use core_reportbuilder\manager;
 use core_reportbuilder\tests\core_reportbuilder_testcase;
+use local_merqamreports\local\company_access;
 use local_merqamreports\local\progress_service;
 use local_merqamreports\local\team_access;
 
 /**
- * Tests for the "My team" data source: a supervisor sees only their own subordinates.
+ * Tests for the "My team" data source: a supervisor sees only their own current subordinates,
+ * and only within their own company.
  *
  * @package    local_merqamreports
  * @copyright  2026 Almerqam
@@ -34,11 +36,15 @@ use local_merqamreports\local\team_access;
 final class my_team_test extends core_reportbuilder_testcase {
     /** @var \stdClass[] Users by short name */
     private array $users = [];
-    /** @var \stdClass Supervisors framework */
+    /** @var \stdClass[] Cohorts by short name */
+    private array $cohorts = [];
+    /** @var \stdClass Alpha supervisors framework */
     private \stdClass $framework;
 
     /**
-     * Company Alpha with one program; boss supervises s1 and s2, otherboss supervises s3.
+     * Two companies. Alpha: boss supervises s1 and s2, otherboss supervises s3. s1 also has a Beta
+     * allocation. betaboss supervises b1 in Beta. Managers hold the company report capability in
+     * their own category.
      */
     protected function setUp(): void {
         parent::setUp();
@@ -53,33 +59,85 @@ final class my_team_test extends core_reportbuilder_testcase {
         $relgen = $gen->get_plugin_generator('tool_murelation');
 
         $alpha = $gen->create_category(['name' => 'Company Alpha', 'idnumber' => 'ALPHA']);
-        $program = $progen->create_program([
+        $beta = $gen->create_category(['name' => 'Company Beta', 'idnumber' => 'BETA']);
+        $alphaprogram = $progen->create_program([
             'fullname' => 'Alpha program',
             'idnumber' => 'PA',
             'contextid' => context\coursecat::instance($alpha->id)->id,
         ]);
-        $siteprogram = $progen->create_program(['fullname' => 'Site program', 'idnumber' => 'PX']);
+        $betaprogram = $progen->create_program([
+            'fullname' => 'Beta program',
+            'idnumber' => 'PB',
+            'contextid' => context\coursecat::instance($beta->id)->id,
+        ]);
 
-        foreach (['boss', 'otherboss', 's1', 's2', 's3', 'loner'] as $name) {
+        foreach (['boss', 'otherboss', 'betaboss', 's1', 's2', 's3', 'b1', 'loner'] as $name) {
             $this->users[$name] = $gen->create_user(['username' => $name]);
         }
-        foreach (['s1', 's2', 's3', 'loner', 'boss'] as $name) {
-            $progen->create_program_allocation(['programid' => $program->id, 'userid' => $this->users[$name]->id]);
+        foreach (['alpham', 'alphal', 'betam', 'betal'] as $name) {
+            $this->cohorts[$name] = $gen->create_cohort(['name' => $name, 'idnumber' => $name]);
         }
-        $progen->create_program_allocation(['programid' => $siteprogram->id, 'userid' => $this->users['s1']->id]);
+        $members = [
+            'alpham' => ['boss', 'otherboss'],
+            'alphal' => ['s1', 's2', 's3', 'loner'],
+            'betam' => ['betaboss'],
+            'betal' => ['b1'],
+        ];
+        foreach ($members as $cohort => $names) {
+            foreach ($names as $name) {
+                cohort_add_member($this->cohorts[$cohort]->id, $this->users[$name]->id);
+            }
+        }
 
-        $this->framework = $relgen->create_framework(['uimode' => 'supervisors', 'name' => 'Line managers']);
-        foreach (['s1' => 'boss', 's2' => 'boss', 's3' => 'otherboss'] as $sub => $boss) {
-            $relgen->create_supervisor([
-                'frameworkid' => $this->framework->id,
-                'subuserid' => $this->users[$sub]->id,
-                'userid' => $this->users[$boss]->id,
-            ]);
+        foreach (['s1', 's2', 's3', 'loner'] as $name) {
+            $progen->create_program_allocation(['programid' => $alphaprogram->id, 'userid' => $this->users[$name]->id]);
         }
+        foreach (['s1', 'b1'] as $name) {
+            $progen->create_program_allocation(['programid' => $betaprogram->id, 'userid' => $this->users[$name]->id]);
+        }
+
+        $roleid = $gen->create_role(['shortname' => 'companymanagertest']);
+        assign_capability(company_access::CAPABILITY, CAP_ALLOW, $roleid, context\system::instance()->id);
+        foreach (['boss', 'otherboss'] as $name) {
+            role_assign($roleid, $this->users[$name]->id, context\coursecat::instance($alpha->id)->id);
+        }
+        role_assign($roleid, $this->users['betaboss']->id, context\coursecat::instance($beta->id)->id);
+
+        $this->framework = $relgen->create_framework([
+            'uimode' => 'supervisors',
+            'name' => 'Alpha line managers',
+            'supervisorcohortid' => $this->cohorts['alpham']->id,
+            'subordinatecohortid' => $this->cohorts['alphal']->id,
+        ]);
+        foreach (['s1' => 'boss', 's2' => 'boss', 's3' => 'otherboss'] as $sub => $boss) {
+            $this->link($this->framework->id, $sub, $boss);
+        }
+        $betaframework = $relgen->create_framework([
+            'uimode' => 'supervisors',
+            'name' => 'Beta line managers',
+            'supervisorcohortid' => $this->cohorts['betam']->id,
+            'subordinatecohortid' => $this->cohorts['betal']->id,
+        ]);
+        $this->link($betaframework->id, 'b1', 'betaboss');
     }
 
     /**
-     * Create a "My team" report listing usernames.
+     * Link a subordinate to a supervisor.
+     *
+     * @param int $frameworkid
+     * @param string $sub
+     * @param string $boss
+     */
+    private function link(int $frameworkid, string $sub, string $boss): void {
+        $this->getDataGenerator()->get_plugin_generator('tool_murelation')->create_supervisor([
+            'frameworkid' => $frameworkid,
+            'subuserid' => $this->users[$sub]->id,
+            'userid' => $this->users[$boss]->id,
+        ]);
+    }
+
+    /**
+     * Create a "My team" report listing usernames and program ID numbers.
      *
      * @return int report id
      */
@@ -92,32 +150,48 @@ final class my_team_test extends core_reportbuilder_testcase {
             'uniqueidentifier' => 'user:username',
             'sortenabled' => 1,
         ]);
+        $rbgen->create_column(['reportid' => $report->get('id'), 'uniqueidentifier' => 'program:idnumber']);
         return (int)$report->get('id');
     }
 
     /**
-     * Usernames the given user sees in the report.
+     * Rows the given user sees, as "username/programidnumber".
      *
      * @param int $reportid
      * @param \stdClass $user
+     * @param bool $resetcache reset the report instance cache first
      * @return string[]
      */
-    private function seen_by(int $reportid, \stdClass $user): array {
+    private function seen_by(int $reportid, \stdClass $user, bool $resetcache = true): array {
         $this->setUser($user);
-        manager::reset_caches();
+        if ($resetcache) {
+            manager::reset_caches();
+        }
         $rows = $this->get_custom_report_content($reportid);
-        $names = array_map(static fn(array $row): string => (string)reset($row), $rows);
+        $names = array_map(static fn(array $row): string => implode('/', array_values($row)), $rows);
         sort($names);
         return $names;
     }
 
     /**
-     * Test: each supervisor sees only their own subordinates, and site-level programs never appear.
+     * Test: each supervisor sees only their own people, and only in their own company.
      */
-    public function test_supervisor_sees_only_own_team(): void {
+    public function test_supervisor_sees_only_own_team_in_own_company(): void {
         $reportid = $this->create_report();
-        $this->assertSame(['s1', 's2'], $this->seen_by($reportid, $this->users['boss']));
-        $this->assertSame(['s3'], $this->seen_by($reportid, $this->users['otherboss']));
+        // The s1 Beta allocation must not appear for the Alpha boss.
+        $this->assertSame(['s1/PA', 's2/PA'], $this->seen_by($reportid, $this->users['boss']));
+        $this->assertSame(['s3/PA'], $this->seen_by($reportid, $this->users['otherboss']));
+        $this->assertSame(['b1/PB'], $this->seen_by($reportid, $this->users['betaboss']));
+    }
+
+    /**
+     * Test: identity switches on the same report without a cache reset (the schedule recipient pattern).
+     */
+    public function test_identity_switch_without_cache_reset(): void {
+        $reportid = $this->create_report();
+        $this->assertSame(['s1/PA', 's2/PA'], $this->seen_by($reportid, $this->users['boss'], false));
+        $this->assertSame(['b1/PB'], $this->seen_by($reportid, $this->users['betaboss'], false));
+        $this->assertSame(['s1/PA', 's2/PA'], $this->seen_by($reportid, $this->users['boss'], false));
     }
 
     /**
@@ -131,20 +205,77 @@ final class my_team_test extends core_reportbuilder_testcase {
     }
 
     /**
-     * Test: a learner supervised by the same person in two frameworks still gives one row per program.
+     * Test: a link left behind after the learner leaves the subordinate cohort no longer counts.
+     */
+    public function test_transferred_learner_drops_out(): void {
+        $reportid = $this->create_report();
+        cohort_remove_member($this->cohorts['alphal']->id, $this->users['s2']->id);
+        $this->assertSame(['s1/PA'], $this->seen_by($reportid, $this->users['boss']));
+    }
+
+    /**
+     * Test: a supervisor who leaves the supervisor cohort, or is suspended, sees no rows.
+     */
+    public function test_supervisor_removed_or_suspended(): void {
+        global $DB;
+
+        $reportid = $this->create_report();
+        cohort_remove_member($this->cohorts['alpham']->id, $this->users['otherboss']->id);
+        $this->assertSame([], $this->seen_by($reportid, $this->users['otherboss']));
+
+        $DB->set_field('user', 'suspended', 1, ['id' => $this->users['boss']->id]);
+        $this->assertSame([], $this->seen_by($reportid, $this->users['boss']));
+    }
+
+    /**
+     * Test: deleting the supervisor link removes access.
+     */
+    public function test_removed_link_removes_access(): void {
+        global $DB;
+
+        $reportid = $this->create_report();
+        $DB->delete_records('tool_murelation_subordinate', ['userid' => $this->users['s2']->id]);
+        $this->assertSame(['s1/PA'], $this->seen_by($reportid, $this->users['boss']));
+    }
+
+    /**
+     * Test: without the company capability, a supervisor sees no rows.
+     */
+    public function test_company_lock_still_applies(): void {
+        $reportid = $this->create_report();
+        role_unassign_all(['userid' => $this->users['otherboss']->id]);
+        $this->assertSame([], $this->seen_by($reportid, $this->users['otherboss']));
+    }
+
+    /**
+     * Test: a framework without both cohorts grants nothing (fail closed).
+     */
+    public function test_framework_without_cohorts_grants_nothing(): void {
+        /** @var \tool_murelation_generator $relgen */
+        $relgen = $this->getDataGenerator()->get_plugin_generator('tool_murelation');
+        $open = $relgen->create_framework(['uimode' => 'supervisors', 'name' => 'No cohorts']);
+        $this->link($open->id, 'loner', 'boss');
+
+        $reportid = $this->create_report();
+        $this->assertSame(['s1/PA', 's2/PA'], $this->seen_by($reportid, $this->users['boss']));
+    }
+
+    /**
+     * Test: a learner linked to the same supervisor in two frameworks gives one row per program.
      */
     public function test_two_frameworks_one_row(): void {
         /** @var \tool_murelation_generator $relgen */
         $relgen = $this->getDataGenerator()->get_plugin_generator('tool_murelation');
-        $second = $relgen->create_framework(['uimode' => 'supervisors', 'name' => 'Mentors']);
-        $relgen->create_supervisor([
-            'frameworkid' => $second->id,
-            'subuserid' => $this->users['s1']->id,
-            'userid' => $this->users['boss']->id,
+        $second = $relgen->create_framework([
+            'uimode' => 'supervisors',
+            'name' => 'Mentors',
+            'supervisorcohortid' => $this->cohorts['alpham']->id,
+            'subordinatecohortid' => $this->cohorts['alphal']->id,
         ]);
+        $this->link($second->id, 's1', 'boss');
 
         $reportid = $this->create_report();
-        $this->assertSame(['s1', 's2'], $this->seen_by($reportid, $this->users['boss']));
+        $this->assertSame(['s1/PA', 's2/PA'], $this->seen_by($reportid, $this->users['boss']));
     }
 
     /**

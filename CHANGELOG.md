@@ -2,8 +2,13 @@
 
 ## 0.2.0 (2026112600)
 - New data source **"My team"**: the program allocations of the viewer's own
-  subordinates (MuTMS Supervisors and teams, any framework). Nobody else,
-  site admins included, gets rows; available only with tool_murelation.
+  current subordinates. A row needs the company lock (as in the company
+  reports) **and** a supervisor link in a Supervisors-mode framework that
+  restricts both sides by cohort, with both people currently in those
+  cohorts and the viewer not suspended. Teams-mode teams and frameworks
+  without cohorts grant nothing. Site admins get no rows unless they are a
+  supervisor themselves. Available only with tool_murelation installed at
+  a supported version.
 - The company data source now decides access in one overridable method.
 - Percentages shown as whole numbers ("75%", not "75.0%").
 - Arabic: the capability name says تصنيف (category), as فئة now means cohort.

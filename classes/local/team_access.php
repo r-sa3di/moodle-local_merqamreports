@@ -21,52 +21,77 @@ use core_reportbuilder\local\helpers\database;
 /**
  * Team access for the "My team" report: which learners the current user supervises.
  *
- * Reads MuTMS Supervisors and teams (tool_murelation): a subordinate position points to a supervisor
- * position, whose user is the supervisor. Works for Supervisors and Teams frameworks alike.
+ * Reads MuTMS Supervisors and teams (tool_murelation). A supervisor link counts only when:
+ * - its framework is in Supervisors mode (Teams-mode teams don't grant access);
+ * - the framework restricts both sides by cohort (frameworks without both cohorts fail closed);
+ * - the supervisor is **currently** in the framework's supervisor cohort and the learner in its
+ *   subordinate cohort (a link left behind after a transfer stops counting);
+ * - the viewer's account is active (not suspended).
+ * The "My team" data source also keeps the company lock ({@see company_access}).
  *
  * @package    local_merqamreports
  * @copyright  2026 Almerqam
  * @license    https://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 final class team_access {
+    /** @var int Lowest tool_murelation version this code was written and tested for. */
+    public const MIN_VERSION = 2026111753;
+
+    /** @var int Same value as \tool_murelation\local\framework::UIMODE_SUPERVISORS. */
+    public const UIMODE_SUPERVISORS = 1;
+
     /**
-     * Whether tool_murelation is installed.
+     * Whether tool_murelation is present and installed at a supported version.
      *
      * @return bool
      */
     public static function is_available(): bool {
-        return \core_component::get_component_directory('tool_murelation') !== null;
+        if (\core_component::get_component_directory('tool_murelation') === null) {
+            return false;
+        }
+        $version = get_config('tool_murelation', 'version');
+        return $version !== false && (int)$version >= self::MIN_VERSION;
     }
 
     /**
-     * SQL condition: the learner in the given field is a subordinate of the user.
+     * SQL condition: the learner in the given field is a current subordinate of the user.
      *
-     * Uses EXISTS, so a learner supervised by the same person in several frameworks still gives one
-     * row. Returns "1 = 0" (no rows) when tool_murelation is missing or there is no user.
+     * Uses EXISTS, so a learner linked to the same supervisor in several frameworks still gives one
+     * row. Returns "1 = 0" (no rows) when tool_murelation is unavailable, there is no user, or the
+     * user is suspended.
      *
      * @param string $useridfield SQL field with the learner's user id
      * @param int|null $supervisorid null for the current user
      * @return array [sql, params]
      */
     public static function get_subordinate_condition(string $useridfield, ?int $supervisorid = null): array {
-        global $USER;
+        global $DB, $USER;
 
         $supervisorid = $supervisorid ?? (int)($USER->id ?? 0);
         if (!$supervisorid || !self::is_available()) {
             return ['1 = 0', []];
         }
+        if ($DB->get_field('user', 'suspended', ['id' => $supervisorid, 'deleted' => 0]) !== '0') {
+            return ['1 = 0', []];
+        }
 
-        $sub = database::generate_alias();
-        $sup = database::generate_alias();
-        $param = database::generate_param_name();
+        [$sub, $sup, $fw, $scm, $lcm] = database::generate_aliases(5);
+        [$pviewer, $pmode] = database::generate_param_names(2);
 
         $sql = "EXISTS (
                     SELECT 1
                       FROM {tool_murelation_subordinate} {$sub}
-                      JOIN {tool_murelation_supervisor} {$sup} ON {$sup}.id = {$sub}.supervisorid
-                     WHERE {$sub}.userid = {$useridfield} AND {$sup}.userid = :{$param}
+                      JOIN {tool_murelation_supervisor} {$sup}
+                           ON {$sup}.id = {$sub}.supervisorid AND {$sup}.frameworkid = {$sub}.frameworkid
+                      JOIN {tool_murelation_framework} {$fw}
+                           ON {$fw}.id = {$sub}.frameworkid AND {$fw}.uimode = :{$pmode}
+                      JOIN {cohort_members} {$scm}
+                           ON {$scm}.cohortid = {$fw}.supervisorcohortid AND {$scm}.userid = {$sup}.userid
+                      JOIN {cohort_members} {$lcm}
+                           ON {$lcm}.cohortid = {$fw}.subordinatecohortid AND {$lcm}.userid = {$sub}.userid
+                     WHERE {$sub}.userid = {$useridfield} AND {$sup}.userid = :{$pviewer}
                 )";
 
-        return [$sql, [$param => $supervisorid]];
+        return [$sql, [$pviewer => $supervisorid, $pmode => self::UIMODE_SUPERVISORS]];
     }
 }

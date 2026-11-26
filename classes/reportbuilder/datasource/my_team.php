@@ -21,10 +21,11 @@ use local_merqamreports\local\team_access;
 /**
  * "My team" data source: the program allocations of the viewer's own subordinates.
  *
- * Same rows and columns as {@see program_allocations}, with a different access rule: only learners
- * whose supervisor (MuTMS Supervisors and teams, tool_murelation) is the person viewing the report,
- * in any framework. Everybody else, site admins included, gets no rows. One report can therefore be
- * shared with the managers of every company: each manager sees only their own people.
+ * Same rows and columns as {@see program_allocations}, with a stricter access rule: the company lock
+ * of the company reports (the viewer holds local/merqamreports:viewprogramreports in the program's
+ * category) **and** a current supervisor link ({@see team_access}: Supervisors-mode framework, both
+ * people in the framework's cohorts, viewer not suspended). Everybody else, site admins included,
+ * gets no rows. One report can therefore be shared with the managers of every company.
  *
  * Available only when tool_murelation is installed.
  *
@@ -45,6 +46,9 @@ class my_team extends program_allocations {
 
     #[\Override]
     protected function add_access_conditions(string $categoryidfield, string $useridfield): void {
+        // Both rules apply: the company lock of the company reports (only programs in categories where
+        // the viewer holds local/merqamreports:viewprogramreports) and the current supervisor link.
+        parent::add_access_conditions($categoryidfield, $useridfield);
         [$teamsql, $teamparams] = team_access::get_subordinate_condition($useridfield);
         $this->add_base_condition_sql($teamsql, $teamparams);
     }

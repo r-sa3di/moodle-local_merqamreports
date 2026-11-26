@@ -60,7 +60,11 @@ class allocation extends base {
      * @return string
      */
     public static function whole_percent(float $value): string {
-        return get_string('percents', 'moodle', format_float(round($value), 0));
+        $rounded = round($value);
+        if ($rounded >= 100 && $value < 100) {
+            $rounded = 99; // 100% only when everything required is done.
+        }
+        return get_string('percents', 'moodle', format_float($rounded, 0));
     }
 
     /**

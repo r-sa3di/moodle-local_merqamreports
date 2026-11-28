@@ -44,7 +44,9 @@ final class overview implements \renderable, \templatable {
      * @param array $summary from {@see overview_service::get_company_summary()}
      */
     public function __construct(
+        /** @var string Formatted company name */
         public readonly string $companyname,
+        /** @var array The summary numbers */
         public readonly array $summary,
     ) {
     }

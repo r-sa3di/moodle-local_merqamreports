@@ -75,7 +75,7 @@ final class overview_service_test extends core_reportbuilder_testcase {
         $this->alphasub = $gen->create_category([
             'name' => 'Alpha sub',
             'idnumber' => 'ALPHASUB',
-            'parent' => $this->alpha->id,
+            'parent' => (int)$this->alpha->id,
         ]);
 
         $where = [
@@ -94,14 +94,14 @@ final class overview_service_test extends core_reportbuilder_testcase {
         }
         $this->programs['px'] = $progen->create_program(['fullname' => 'Site program', 'idnumber' => 'PX']);
 
-        set_config(overview_service::SETTING, $this->alpha->id . ',' . $this->beta->id, 'local_merqamreports');
+        set_config(overview_service::SETTING, (int)$this->alpha->id . ',' . (int)$this->beta->id, 'local_merqamreports');
 
         $this->roleid = $gen->create_role(['shortname' => 'companymanagertest']);
         assign_capability(company_access::CAPABILITY, CAP_ALLOW, $this->roleid, context\system::instance()->id);
         $this->alphamanager = $gen->create_user(['username' => 'alphamanager']);
-        role_assign($this->roleid, $this->alphamanager->id, context\coursecat::instance($this->alpha->id)->id);
+        role_assign($this->roleid, $this->alphamanager->id, context\coursecat::instance((int)$this->alpha->id)->id);
         $this->betamanager = $gen->create_user(['username' => 'betamanager']);
-        role_assign($this->roleid, $this->betamanager->id, context\coursecat::instance($this->beta->id)->id);
+        role_assign($this->roleid, $this->betamanager->id, context\coursecat::instance((int)$this->beta->id)->id);
     }
 
     /**
@@ -187,12 +187,12 @@ final class overview_service_test extends core_reportbuilder_testcase {
         $archived = $progen->create_program([
             'fullname' => 'Archived program',
             'idnumber' => 'PARCH',
-            'contextid' => context\coursecat::instance($this->alpha->id)->id,
+            'contextid' => context\coursecat::instance((int)$this->alpha->id)->id,
         ]);
         $draft = $progen->create_program([
             'fullname' => 'Draft program',
             'idnumber' => 'PDRAFT',
-            'contextid' => context\coursecat::instance($this->alpha->id)->id,
+            'contextid' => context\coursecat::instance((int)$this->alpha->id)->id,
         ]);
         $this->programs['parch'] = $archived;
         $this->programs['pdraft'] = $draft;
@@ -214,10 +214,10 @@ final class overview_service_test extends core_reportbuilder_testcase {
      * Test: each viewer gets only their own company as an option; the admin gets the configured ones only.
      */
     public function test_company_options(): void {
-        $this->assertSame([$this->alpha->id], array_keys(overview_service::get_company_options((int)$this->alphamanager->id)));
-        $this->assertSame([$this->beta->id], array_keys(overview_service::get_company_options((int)$this->betamanager->id)));
+        $this->assertSame([(int)$this->alpha->id], array_keys(overview_service::get_company_options((int)$this->alphamanager->id)));
+        $this->assertSame([(int)$this->beta->id], array_keys(overview_service::get_company_options((int)$this->betamanager->id)));
         $this->assertSame(
-            [$this->alpha->id, $this->beta->id],
+            [(int)$this->alpha->id, (int)$this->beta->id],
             array_keys(overview_service::get_company_options((int)get_admin()->id))
         );
         $nobody = $this->getDataGenerator()->create_user();
@@ -229,7 +229,7 @@ final class overview_service_test extends core_reportbuilder_testcase {
      */
     public function test_alpha_summary(): void {
         $this->create_alpha_mix();
-        $summary = overview_service::get_company_summary($this->alpha->id, $this->now, (int)$this->alphamanager->id);
+        $summary = overview_service::get_company_summary((int)$this->alpha->id, $this->now, (int)$this->alphamanager->id);
 
         $this->assertSame(7, $summary['total']);
         $this->assertSame([
@@ -246,7 +246,7 @@ final class overview_service_test extends core_reportbuilder_testcase {
         $this->assertEqualsWithDelta(100 / 7, $summary['completionrate'], 0.001);
         $this->assertSame(['Program pa', 'Program pa2'], array_column($summary['programs'], 'name'));
 
-        $beta = overview_service::get_company_summary($this->beta->id, $this->now, (int)$this->betamanager->id);
+        $beta = overview_service::get_company_summary((int)$this->beta->id, $this->now, (int)$this->betamanager->id);
         $this->assertSame(1, $beta['total']);
     }
 
@@ -255,7 +255,7 @@ final class overview_service_test extends core_reportbuilder_testcase {
      */
     public function test_other_company_refused(): void {
         $this->expectException(\required_capability_exception::class);
-        overview_service::get_company_summary($this->alpha->id, $this->now, (int)$this->betamanager->id);
+        overview_service::get_company_summary((int)$this->alpha->id, $this->now, (int)$this->betamanager->id);
     }
 
     /**
@@ -264,7 +264,7 @@ final class overview_service_test extends core_reportbuilder_testcase {
     public function test_no_capability_refused(): void {
         $nobody = $this->getDataGenerator()->create_user();
         $this->expectException(\required_capability_exception::class);
-        overview_service::get_company_summary($this->alpha->id, $this->now, (int)$nobody->id);
+        overview_service::get_company_summary((int)$this->alpha->id, $this->now, (int)$nobody->id);
     }
 
     /**
@@ -294,7 +294,7 @@ final class overview_service_test extends core_reportbuilder_testcase {
         $this->assertCount(2, overview_service::get_company_options((int)get_admin()->id));
 
         $this->expectException(\required_capability_exception::class);
-        overview_service::get_company_summary($this->beta->id, $this->now, (int)$wide->id);
+        overview_service::get_company_summary((int)$this->beta->id, $this->now, (int)$wide->id);
     }
 
     /**
@@ -303,19 +303,19 @@ final class overview_service_test extends core_reportbuilder_testcase {
     public function test_capability_overrides(): void {
         $this->create_alpha_mix();
         $manager = (int)$this->alphamanager->id;
-        $subcontext = context\coursecat::instance($this->alphasub->id);
+        $subcontext = context\coursecat::instance((int)$this->alphasub->id);
 
         role_change_permission($this->roleid, $subcontext, company_access::CAPABILITY, CAP_PROHIBIT);
-        $this->assertSame(7, overview_service::get_company_summary($this->alpha->id, $this->now, $manager)['total']);
+        $this->assertSame(7, overview_service::get_company_summary((int)$this->alpha->id, $this->now, $manager)['total']);
 
         role_change_permission($this->roleid, $subcontext, company_access::CAPABILITY, CAP_PREVENT);
-        $this->assertSame(7, overview_service::get_company_summary($this->alpha->id, $this->now, $manager)['total']);
+        $this->assertSame(7, overview_service::get_company_summary((int)$this->alpha->id, $this->now, $manager)['total']);
 
-        $alphacontext = context\coursecat::instance($this->alpha->id);
+        $alphacontext = context\coursecat::instance((int)$this->alpha->id);
         role_change_permission($this->roleid, $alphacontext, company_access::CAPABILITY, CAP_PROHIBIT);
         $this->assertSame([], overview_service::get_company_options($manager));
         $this->expectException(\required_capability_exception::class);
-        overview_service::get_company_summary($this->alpha->id, $this->now, $manager);
+        overview_service::get_company_summary((int)$this->alpha->id, $this->now, $manager);
     }
 
     /**
@@ -328,12 +328,12 @@ final class overview_service_test extends core_reportbuilder_testcase {
         $this->allocate('pa', [], $learner);
         $this->allocate('pb', [], $learner);
         $alphatotal = fn(): int => overview_service::get_company_summary(
-            $this->alpha->id,
+            (int)$this->alpha->id,
             $this->now,
             (int)$this->alphamanager->id
         )['total'];
         $betatotal = fn(): int => overview_service::get_company_summary(
-            $this->beta->id,
+            (int)$this->beta->id,
             $this->now,
             (int)$this->betamanager->id
         )['total'];
@@ -341,7 +341,7 @@ final class overview_service_test extends core_reportbuilder_testcase {
         $this->assertSame(1, $betatotal());
 
         // Ownership rule (program-reports.md 11.3): the program's current category decides.
-        $betacontextid = context\coursecat::instance($this->beta->id)->id;
+        $betacontextid = context\coursecat::instance((int)$this->beta->id)->id;
         $DB->set_field('tool_muprog_program', 'contextid', $betacontextid, ['id' => $this->programs['pa']->id]);
         $this->assertSame(0, $alphatotal());
         $this->assertSame(2, $betatotal());
@@ -353,7 +353,7 @@ final class overview_service_test extends core_reportbuilder_testcase {
     public function test_no_allocations(): void {
         global $PAGE;
 
-        $summary = overview_service::get_company_summary($this->alpha->id, $this->now, (int)$this->alphamanager->id);
+        $summary = overview_service::get_company_summary((int)$this->alpha->id, $this->now, (int)$this->alphamanager->id);
         $this->assertSame(0, $summary['total']);
         $this->assertNull($summary['completionrate']);
         $this->assertSame([], $summary['programs']);
@@ -373,7 +373,7 @@ final class overview_service_test extends core_reportbuilder_testcase {
         $this->allocate('pa', ['timedue' => $this->now + 30 * DAYSECS + 1]);
         $this->allocate('pa', ['timedue' => $this->now - 1]);
 
-        $summary = overview_service::get_company_summary($this->alpha->id, $this->now, (int)$this->alphamanager->id);
+        $summary = overview_service::get_company_summary((int)$this->alpha->id, $this->now, (int)$this->alphamanager->id);
         $this->assertSame(3, $summary['statuses'][status::OPEN]);
         $this->assertSame(1, $summary['statuses'][status::OVERDUE]);
         $this->assertSame(1, $summary['duesoon']);
@@ -383,10 +383,10 @@ final class overview_service_test extends core_reportbuilder_testcase {
      * Test: the request value. Absent: one option chosen, several = selector only (no summary), none = refused.
      */
     public function test_resolve_absent_parameter(): void {
-        $this->assertSame($this->alpha->id, overview_service::resolve_requested_category([$this->alpha->id], null));
-        $this->assertNull(overview_service::resolve_requested_category([$this->alpha->id, $this->beta->id], null));
-        $this->assertSame($this->beta->id, overview_service::resolve_requested_category(
-            [$this->alpha->id, $this->beta->id],
+        $this->assertSame((int)$this->alpha->id, overview_service::resolve_requested_category([(int)$this->alpha->id], null));
+        $this->assertNull(overview_service::resolve_requested_category([(int)$this->alpha->id, (int)$this->beta->id], null));
+        $this->assertSame((int)$this->beta->id, overview_service::resolve_requested_category(
+            [(int)$this->alpha->id, (int)$this->beta->id],
             (string)$this->beta->id
         ));
 
@@ -406,7 +406,7 @@ final class overview_service_test extends core_reportbuilder_testcase {
      */
     public function test_resolve_bad_values(): void {
         $id = (string)$this->alpha->id;
-        $options = [$this->alpha->id];
+        $options = [(int)$this->alpha->id];
         $bad = [
             '', 'abc', $id . 'abc', $id . "\n", ' ' . $id, '0' . $id, '-' . $id, '99999999999999999999', $id . "\xff",
             [$id], (string)$this->beta->id, (string)$this->public->id, (string)$this->alphasub->id, '999999', 5,
@@ -427,10 +427,10 @@ final class overview_service_test extends core_reportbuilder_testcase {
     public function test_prepare_page_refuses_other_company(): void {
         $this->setUser($this->alphamanager);
         $state = overview_service::prepare_page(null, $this->now);
-        $this->assertSame($this->alpha->id, $state['chosen']);
+        $this->assertSame((int)$this->alpha->id, $state['chosen']);
         $this->assertIsArray($state['summary']);
 
-        $bad = [(string)$this->beta->id, (string)$this->public->id, [(string)$this->alpha->id], $this->alpha->id . "\xff"];
+        $bad = [(string)$this->beta->id, (string)$this->public->id, [(string)$this->alpha->id], (int)$this->alpha->id . "\xff"];
         foreach ($bad as $value) {
             try {
                 overview_service::prepare_page($value, $this->now);
@@ -461,16 +461,16 @@ final class overview_service_test extends core_reportbuilder_testcase {
         $this->assertSame($error, $setting->write_setting([(string)$this->alphasub->id]));
         $this->assertSame($error, $setting->write_setting([(string)$this->alpha->id, '999999']));
         $this->assertSame('', $setting->write_setting([(string)$this->alpha->id, (string)$this->beta->id]));
-        $this->assertSame([$this->alpha->id, $this->beta->id], overview_service::get_saved_ids());
+        $this->assertSame([(int)$this->alpha->id, (int)$this->beta->id], overview_service::get_saved_ids());
 
         // A normal form submission includes the hidden field.
         $this->assertSame('', $setting->write_setting(['xxxxx' => '1', (string)$this->alpha->id]));
-        $this->assertSame([$this->alpha->id], overview_service::get_saved_ids());
+        $this->assertSame([(int)$this->alpha->id], overview_service::get_saved_ids());
 
         // Invalid submissions are refused and keep the previous value.
         foreach ([[[(string)$this->beta->id]], ['xxxxx' => '1', ''], [(string)$this->public->id . 'x']] as $data) {
             $this->assertSame($error, $setting->write_setting($data));
-            $this->assertSame([$this->alpha->id], overview_service::get_saved_ids());
+            $this->assertSame([(int)$this->alpha->id], overview_service::get_saved_ids());
         }
 
         // Clearing every choice saves an empty setting.
@@ -492,7 +492,7 @@ final class overview_service_test extends core_reportbuilder_testcase {
             $this->assertNull(overview_service::get_request_value());
             $_GET = ['category' => $id];
             $state = overview_service::prepare_page(overview_service::get_request_value(), $this->now);
-            $this->assertSame($this->alpha->id, $state['chosen']);
+            $this->assertSame((int)$this->alpha->id, $state['chosen']);
 
             $refused = [
                 ['get' => [$id]],
@@ -523,9 +523,9 @@ final class overview_service_test extends core_reportbuilder_testcase {
         global $OUTPUT;
 
         $options = [
-            $this->alpha->id => 'Safety & Quality',
-            $this->beta->id => 'R&amp;D <b>x</b>',
-            $this->public->id => 'A&#38;B',
+            (int)$this->alpha->id => 'Safety & Quality',
+            (int)$this->beta->id => 'R&amp;D <b>x</b>',
+            (int)$this->public->id => 'A&#38;B',
         ];
         $html = $OUTPUT->render(overview_service::get_selector($options, null));
         $this->assertStringContainsString('Safety &amp; Quality', $html);
@@ -543,14 +543,14 @@ final class overview_service_test extends core_reportbuilder_testcase {
         filter_set_global_state('multilang', TEXTFILTER_ON);
         filter_set_applies_to_strings('multilang', true);
         \filter_manager::reset_caches();
-        $DB->set_field('course_categories', 'name', 'Safety & Quality', ['id' => $this->alpha->id]);
+        $DB->set_field('course_categories', 'name', 'Safety & Quality', ['id' => (int)$this->alpha->id]);
         $multilang = '<span lang="en" class="multilang">Fire & safety</span><span lang="ar" class="multilang">السلامة</span>';
         $DB->set_field('tool_muprog_program', 'fullname', $multilang, ['id' => $this->programs['pa']->id]);
         $this->allocate('pa');
 
         $options = overview_service::get_company_options((int)$this->alphamanager->id);
-        $this->assertSame([$this->alpha->id => 'Safety & Quality'], $options);
-        $summary = overview_service::get_company_summary($this->alpha->id, $this->now, (int)$this->alphamanager->id);
+        $this->assertSame([(int)$this->alpha->id => 'Safety & Quality'], $options);
+        $summary = overview_service::get_company_summary((int)$this->alpha->id, $this->now, (int)$this->alphamanager->id);
         $this->assertSame(['Fire & safety'], array_column($summary['programs'], 'name'));
     }
 
@@ -560,21 +560,21 @@ final class overview_service_test extends core_reportbuilder_testcase {
     public function test_saved_ids_rechecked(): void {
         $gen = $this->getDataGenerator();
         $gamma = $gen->create_category(['name' => 'Company Gamma']);
-        $saved = implode(',', [$this->alpha->id, $this->beta->id, $gamma->id]);
+        $saved = implode(',', [(int)$this->alpha->id, (int)$this->beta->id, (int)$gamma->id]);
         set_config(overview_service::SETTING, $saved, 'local_merqamreports');
         $alphalearner = $gen->create_user(['username' => 'alphalearner']);
         $this->allocate('pa', [], $alphalearner);
         $this->allocate('pb', [], $gen->create_user(['username' => 'betalearner']));
         $this->allocate('ps', [], $gen->create_user(['username' => 'sublearner']));
-        $betachild = $gen->create_category(['name' => 'Beta child', 'parent' => $this->beta->id]);
+        $betachild = $gen->create_category(['name' => 'Beta child', 'parent' => (int)$this->beta->id]);
         $this->programs['pbc'] = $gen->get_plugin_generator('tool_muprog')->create_program([
             'fullname' => 'Beta child program',
             'idnumber' => 'PBC',
-            'contextid' => context\coursecat::instance($betachild->id)->id,
+            'contextid' => context\coursecat::instance((int)$betachild->id)->id,
         ]);
         $this->allocate('pbc', [], $gen->create_user(['username' => 'betachildlearner']));
 
-        $this->beta->change_parent($this->alpha->id);
+        $this->beta->change_parent((int)$this->alpha->id);
 
         // The moved company's rows (Beta and Beta's child) don't reach the outer company's manager in
         // the detailed report; Alpha's own sub-category still does (as before).
@@ -591,22 +591,22 @@ final class overview_service_test extends core_reportbuilder_testcase {
         };
         $this->assertSame(['alphalearner', 'sublearner'], $seenbyalpha());
         $allowed = company_access::get_allowed_category_ids((int)$this->alphamanager->id);
-        $this->assertNotContains($this->beta->id, $allowed);
-        $this->assertNotContains($betachild->id, $allowed);
-        $this->assertContains($this->alphasub->id, $allowed);
+        $this->assertNotContains((int)$this->beta->id, $allowed);
+        $this->assertNotContains((int)$betachild->id, $allowed);
+        $this->assertContains((int)$this->alphasub->id, $allowed);
 
         // A normal save of the settings form (Beta is no longer offered) keeps Beta saved, so the guard holds.
         $this->setAdminUser();
         $this->assertSame('', (new setting_companyroots())->write_setting(['xxxxx' => '1', (string)$this->alpha->id]));
-        $this->assertContains($this->beta->id, overview_service::get_saved_ids());
+        $this->assertContains((int)$this->beta->id, overview_service::get_saved_ids());
         $this->assertSame(['alphalearner', 'sublearner'], $seenbyalpha());
 
         $this->setAdminUser();
         set_config(overview_service::SETTING, $saved, 'local_merqamreports');
         $gamma->delete_full(false);
 
-        $this->assertSame([$this->alpha->id], array_keys(overview_service::get_valid_companies()));
-        $this->assertEqualsCanonicalizing([$this->beta->id, $gamma->id], overview_service::get_invalid_saved_ids());
+        $this->assertSame([(int)$this->alpha->id], array_keys(overview_service::get_valid_companies()));
+        $this->assertEqualsCanonicalizing([(int)$this->beta->id, (int)$gamma->id], overview_service::get_invalid_saved_ids());
         $this->assertSame([], overview_service::get_company_options((int)$this->betamanager->id));
         try {
             overview_service::resolve_requested_category(
@@ -647,7 +647,7 @@ final class overview_service_test extends core_reportbuilder_testcase {
         $rbgen->create_condition(['reportid' => $reportid, 'uniqueidentifier' => 'course_category:name']);
         manager::get_report_from_persistent($report)->set_condition_values([
             'course_category:name_operator' => category_filter::EQUAL_TO,
-            'course_category:name_value' => $this->alpha->id,
+            'course_category:name_value' => (int)$this->alpha->id,
         ]);
 
         $this->setUser($this->alphamanager);
@@ -658,7 +658,7 @@ final class overview_service_test extends core_reportbuilder_testcase {
         $archived = [$labels[status::ARCHIVED], $labels[status::ARCHIVEDCOMPLETED]];
         $rows = array_values(array_filter($rows, static fn(array $row): bool => !in_array($row[1], $archived, true)));
 
-        $summary = overview_service::get_company_summary($this->alpha->id, time(), (int)$this->alphamanager->id);
+        $summary = overview_service::get_company_summary((int)$this->alpha->id, time(), (int)$this->alphamanager->id);
         $this->assertCount($summary['total'], $rows);
         foreach (overview_service::STATUSES as $code) {
             $inreport = count(array_filter($rows, static fn(array $row): bool => $row[1] === $labels[$code]));

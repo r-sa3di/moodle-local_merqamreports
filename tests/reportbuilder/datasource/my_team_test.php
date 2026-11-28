@@ -185,6 +185,46 @@ final class my_team_test extends core_reportbuilder_testcase {
     }
 
     /**
+     * Test: a supervisor who also holds the company capability site-wide gets no rows (fail closed, 0.3.0).
+     */
+    public function test_sitewide_grant_no_rows(): void {
+        global $DB;
+
+        $reportid = $this->create_report();
+        $roleid = (int)$DB->get_field('role', 'id', ['shortname' => 'companymanagertest'], MUST_EXIST);
+        role_assign($roleid, $this->users['boss']->id, context\system::instance()->id);
+
+        $this->assertSame([], $this->seen_by($reportid, $this->users['boss']));
+        // As a schedule recipient (identity switch without a cache reset), still nothing.
+        $this->assertSame([], $this->seen_by($reportid, $this->users['boss'], false));
+        // Other supervisors are unchanged.
+        $this->assertSame(['s3/PA'], $this->seen_by($reportid, $this->users['otherboss']));
+        $this->assertSame(['b1/PB'], $this->seen_by($reportid, $this->users['betaboss'], false));
+    }
+
+    /**
+     * Test: a configured company moved under another company doesn't reach the outer company's supervisors.
+     */
+    public function test_moved_company_category_no_rows(): void {
+        global $DB;
+
+        $alphaid = (int)$DB->get_field('course_categories', 'id', ['idnumber' => 'ALPHA'], MUST_EXIST);
+        $betaid = (int)$DB->get_field('course_categories', 'id', ['idnumber' => 'BETA'], MUST_EXIST);
+        set_config('companyroots', $alphaid . ',' . $betaid, 'local_merqamreports');
+        $reportid = $this->create_report();
+
+        // Without the guard, boss (Alpha) would inherit Beta and see s1's Beta allocation (s1/PB).
+        \core_course_category::get($betaid)->change_parent($alphaid);
+        $this->assertSame(['s1/PA', 's2/PA'], $this->seen_by($reportid, $this->users['boss']));
+
+        // A normal save of the settings form (Beta no longer offered) keeps the guard.
+        $this->setAdminUser();
+        $setting = new \local_merqamreports\admin\setting_companyroots();
+        $this->assertSame('', $setting->write_setting(['xxxxx' => '1', (string)$alphaid]));
+        $this->assertSame(['s1/PA', 's2/PA'], $this->seen_by($reportid, $this->users['boss']));
+    }
+
+    /**
      * Test: identity switches on the same report without a cache reset (the schedule recipient pattern).
      */
     public function test_identity_switch_without_cache_reset(): void {

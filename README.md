@@ -18,6 +18,13 @@ One row is one learner in one program, with:
 - the program certificate code and issue date (tool_certificate);
 - the learner's details and the program's course category.
 
+A **Company overview** page (`/local/merqamreports/overview.php`) shows one
+company at a glance: completion rate, overdue, due in the next 30 days and
+certificates issued, plus two charts (allocations by status, status per
+program). A company is one top-level course category chosen in the
+plugin setting **Company categories**; the page counts programs placed
+directly in it, without archived programs or allocations.
+
 The plugin only reads data. It adds no tables and changes nothing.
 
 ## Company separation
@@ -26,6 +33,13 @@ category** in which the viewer holds
 `local/merqamreports:viewprogramreports`. The capability is given to no
 role by default. Site admins see every category. Draft programs and
 programs at site level never appear.
+
+**Fail closed:** a user who is not a site admin and holds the capability
+in the **system context** gets no rows at all (and no overview). Assign
+the company manager role only in each company's category, never at
+system level. Company categories must be top-level.
+
+The overview page refuses "Log in as" sessions: test it with real logins.
 
 Report builder rules for safe use:
 - Give every company report a **Course category** condition.

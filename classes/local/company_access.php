@@ -33,17 +33,84 @@ final class company_access {
     public const CAPABILITY = 'local/merqamreports:viewprogramreports';
 
     /**
+     * Whether the user is refused everywhere because they hold the capability site-wide.
+     *
+     * Company categories are top-level, so the only context above a company is the system. A
+     * non-admin holding the capability there (an accidental site-wide grant) would see every company,
+     * so they get nothing instead (fail closed). Site admins are not affected.
+     *
+     * @param int|null $userid null for the current user
+     * @return bool
+     */
+    public static function is_blocked_sitewide(?int $userid = null): bool {
+        if (is_siteadmin($userid)) {
+            return false;
+        }
+        return has_capability(self::CAPABILITY, \core\context\system::instance(), $userid);
+    }
+
+    /**
      * Ids of the course categories where the user holds the capability (site admins: all categories).
+     *
+     * Empty for a non-admin who holds the capability in the system context ({@see is_blocked_sitewide()}).
      *
      * @param int|null $userid null for the current user
      * @return int[]
      */
     public static function get_allowed_category_ids(?int $userid = null): array {
+        if (self::is_blocked_sitewide($userid)) {
+            return [];
+        }
         [$categories] = get_user_capability_contexts(self::CAPABILITY, true, $userid);
         if (!$categories) {
             return [];
         }
-        return array_map(static fn($category): int => (int)$category->id, $categories);
+        $ids = array_map(static fn($category): int => (int)$category->id, $categories);
+        if (is_siteadmin($userid)) {
+            return $ids;
+        }
+        return self::remove_misplaced_companies($ids);
+    }
+
+    /**
+     * Remove configured company categories that are no longer top-level, and everything below them.
+     *
+     * A company moved under another category (e.g. Beta under Alpha) would otherwise be inherited by
+     * the outer company's managers. Ordinary sub-categories of a company are not affected. This relies
+     * on the saved setting: change company categories only on the settings page, never by admin preset
+     * or CLI (docs/program-reports.md section 11.1, known limits).
+     *
+     * @param int[] $ids category ids
+     * @return int[]
+     */
+    private static function remove_misplaced_companies(array $ids): array {
+        global $DB;
+
+        $saved = overview_service::get_saved_ids();
+        if (!$saved || !$ids) {
+            return $ids;
+        }
+        [$insql, $params] = $DB->get_in_or_equal($saved, SQL_PARAMS_NAMED);
+        $misplaced = $DB->get_fieldset_select('course_categories', 'path', "id {$insql} AND parent <> 0", $params);
+        if (!$misplaced) {
+            return $ids;
+        }
+        [$insql, $params] = $DB->get_in_or_equal($ids, SQL_PARAMS_NAMED);
+        $paths = $DB->get_records_select_menu('course_categories', "id {$insql}", $params, '', 'id, path');
+        $kept = [];
+        foreach ($ids as $id) {
+            $path = $paths[$id] ?? null;
+            if ($path === null) {
+                continue;
+            }
+            foreach ($misplaced as $bad) {
+                if ($path === $bad || str_starts_with($path, $bad . '/')) {
+                    continue 2;
+                }
+            }
+            $kept[] = $id;
+        }
+        return $kept;
     }
 
     /**

@@ -25,8 +25,8 @@
 defined('MOODLE_INTERNAL') || die();
 
 $plugin->component = 'local_merqamreports';
-$plugin->version = 2026112600;
-$plugin->release = '0.2.0';
+$plugin->version = 2026112800;
+$plugin->release = '0.3.0';
 $plugin->maturity = MATURITY_ALPHA;
 $plugin->requires = 2026091600; // Moodle 5.3.
 $plugin->supported = [503, 503];

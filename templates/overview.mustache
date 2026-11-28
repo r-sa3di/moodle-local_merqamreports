@@ -1,0 +1,63 @@
+{{!
+    This file is part of Moodle - https://moodle.org/
+
+    Moodle is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    Moodle is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with Moodle.  If not, see <https://www.gnu.org/licenses/>.
+}}
+{{!
+    @template local_merqamreports/overview
+
+    Company overview: four tiles and two charts.
+
+    Context variables required for this template:
+    * companyname - formatted company name
+    * hasallocations - whether there is anything to chart
+    * total - "Total allocations: N"
+    * tiles - list of {key, label, value}
+    * statuschart - chart HTML (only with allocations)
+    * programschart - chart HTML (only with allocations)
+
+    Example context (json):
+    {
+        "companyname": "Company Alpha",
+        "hasallocations": true,
+        "total": "Total allocations: 12",
+        "tiles": [
+            {"key": "completionrate", "label": "Completion rate", "value": "58%"},
+            {"key": "overdue", "label": "Overdue", "value": "2"},
+            {"key": "duesoon", "label": "Due in the next 30 days", "value": "3"},
+            {"key": "certificates", "label": "Certificates issued", "value": "7"}
+        ],
+        "statuschart": "<div>chart</div>",
+        "programschart": "<div>chart</div>"
+    }
+}}
+<div class="local-merqamreports-overview">
+    <h3 class="local-merqamreports-company">{{companyname}}</h3>
+    <ul class="local-merqamreports-tiles list-unstyled">
+        {{#tiles}}
+        <li class="local-merqamreports-tile local-merqamreports-tile-{{key}}">
+            <span class="local-merqamreports-tile-value">{{value}}</span>
+            <span class="local-merqamreports-tile-label">{{label}}</span>
+        </li>
+        {{/tiles}}
+    </ul>
+    {{#hasallocations}}
+    <p class="text-muted">{{total}}</p>
+    <div class="local-merqamreports-charts">
+        <div class="local-merqamreports-chart">{{{statuschart}}}</div>
+        <div class="local-merqamreports-chart">{{{programschart}}}</div>
+    </div>
+    {{/hasallocations}}
+    <p class="text-muted small">{{#str}}overview_counted, local_merqamreports{{/str}}</p>
+</div>

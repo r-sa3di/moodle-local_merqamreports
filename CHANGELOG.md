@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.3.0 (2026112800)
+- New page **Company overview** (`/local/merqamreports/overview.php`): four
+  tiles (completion rate, overdue, due in the next 30 days, certificates
+  issued) and two core charts (allocations by status; status per program)
+  for one company. It counts the "Program allocations" rows of programs
+  placed directly in the company category, without archived programs or
+  allocations.
+- New setting **Company categories**: top-level course categories only
+  (other ids refused on save; saved ids re-checked on every use, with an
+  admin warning for deleted or moved ones).
+- **Fail closed for site-wide grants:** a non-admin who holds
+  `local/merqamreports:viewprogramreports` in the system context now gets
+  no rows in "Program allocations" and "My team", and the overview refuses
+  them.
+- A configured company category that is no longer top-level (moved under
+  another category) is removed, with everything below it, from what
+  non-admins may see, so another company's managers never inherit it.
+  A normal settings save keeps such a category saved. Change company
+  categories only on the settings page (not by admin preset or CLI).
+- The overview refuses "Log in as" sessions, and gives one permission
+  error for any wrong, missing or tampered company parameter.
+- `status::get_sql()` takes an optional reference time.
+- Tests for the overview, the site-wide refusal in both data sources and
+  parity with a real company report.
+
 ## 0.2.0 (2026112600)
 - New data source **"My team"**: the program allocations of the viewer's own
   current subordinates. A row needs the company lock (as in the company

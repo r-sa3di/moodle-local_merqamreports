@@ -1,0 +1,48 @@
+/* Company overview (docs/program-reports.md section 11). Logical properties only, so RTL works. */
+.local-merqamreports-tiles {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+    gap: 1rem;
+    margin-block: 1rem;
+}
+
+.local-merqamreports-tile {
+    display: flex;
+    flex-direction: column;
+    padding: 1rem 1.25rem;
+    border: 1px solid #e6e9ef;
+    border-inline-start: 0.375rem solid #011d5a;
+    border-radius: 0.5rem;
+    background: #fff;
+}
+
+.local-merqamreports-tile-overdue {
+    border-inline-start-color: #c0392b;
+}
+
+.local-merqamreports-tile-completionrate,
+.local-merqamreports-tile-certificates {
+    border-inline-start-color: #049151;
+}
+
+.local-merqamreports-tile-value {
+    font-size: 2rem;
+    font-weight: 700;
+    line-height: 1.2;
+    color: #011d5a;
+}
+
+.local-merqamreports-tile-label {
+    color: #4a5568;
+}
+
+.local-merqamreports-charts {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 22rem), 1fr));
+    gap: 1.5rem;
+    margin-block: 1rem;
+}
+
+.local-merqamreports-chart {
+    min-width: 0;
+}

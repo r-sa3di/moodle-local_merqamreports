@@ -51,11 +51,12 @@ final class status {
      *
      * @param string $allocationalias alias of tool_muprog_allocation
      * @param string $programalias alias of tool_muprog_program
+     * @param int|null $now the moment to judge the status at; null for now (time())
      * @return array [sql, params]
      */
-    public static function get_sql(string $allocationalias, string $programalias): array {
+    public static function get_sql(string $allocationalias, string $programalias, ?int $now = null): array {
         [$now1, $now2, $now3] = database::generate_param_names(3);
-        $now = time();
+        $now = $now ?? time();
         $a = $allocationalias;
         $p = $programalias;
 

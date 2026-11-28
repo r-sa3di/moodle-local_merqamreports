@@ -170,6 +170,28 @@ final class program_allocations_test extends core_reportbuilder_testcase {
     }
 
     /**
+     * Test: a non-admin holding the capability in the system context gets no rows (fail closed, 0.3.0).
+     */
+    public function test_sitewide_grant_no_rows(): void {
+        $reportid = $this->create_username_report();
+        $gen = $this->getDataGenerator();
+
+        $wide = $gen->create_user();
+        role_assign($this->roleid, $wide->id, context\system::instance()->id);
+        $this->assertSame([], $this->usernames_seen_by($reportid, $wide));
+
+        // Also when the same user holds it in a company category as well.
+        role_assign($this->roleid, $wide->id, context\coursecat::instance($this->alpha->id)->id);
+        $this->assertSame([], $this->usernames_seen_by($reportid, $wide));
+
+        // A normal manager and the admin are unchanged.
+        $alphamanager = $gen->create_user();
+        role_assign($this->roleid, $alphamanager->id, context\coursecat::instance($this->alpha->id)->id);
+        $this->assertSame(['learner_alpha', 'learner_sub'], $this->usernames_seen_by($reportid, $alphamanager));
+        $this->assertSame(['learner_alpha', 'learner_beta', 'learner_sub'], $this->usernames_seen_by($reportid, get_admin()));
+    }
+
+    /**
      * Test: an overdue allocation shows the Overdue status and days overdue.
      */
     public function test_overdue_status(): void {
